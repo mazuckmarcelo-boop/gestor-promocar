@@ -1,4 +1,16 @@
 
+/* FORCE DARK MODE ON ALL DEVICES */
+html, body, * {
+    color-scheme: only dark !important;
+}
+
+/* FORCE TEXT WHITE EVERYWHERE */
+body, .card, .card *, .task-list *, .mini-list *, table *, .home-card *, 
+.nav-btn *, .equipe-card *, .modal *, .modal * {
+    color: #ffffff !important;
+}
+
+
 /* Text visibility fix */
 .card, .card * {
     color: #fff !important;
