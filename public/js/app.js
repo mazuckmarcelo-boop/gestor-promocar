@@ -125,12 +125,17 @@ function inicializarPortaisSeVazio(){
     salvarLS(STORAGE_KEYS.portais,estadoPortais);
   }
 }
+
 function renderPortaisTabela(){
   const tbody=document.getElementById("portais-body");
   const totalEl=document.getElementById("portais-total");
   if(!tbody)return; tbody.innerHTML=""; let totalCusto=0;
+  const hoje = new Date();
   estadoPortais.forEach((p,idx)=>{
+    if (typeof p.pago === "undefined") p.pago = false;
+
     const tr=document.createElement("tr");
+
     function cell(tipo,valor,campo,attrs={}){
       const td=document.createElement("td"); const inp=document.createElement("input");
       inp.type=tipo; inp.value=valor??""; Object.assign(inp,attrs);
@@ -142,18 +147,57 @@ function renderPortaisTabela(){
       });
       td.appendChild(inp); return td;
     }
+
     tr.appendChild(cell("text",p.nome,"nome"));
     tr.appendChild(cell("number",p.custo,"custo",{step:"0.01",min:"0"}));
     tr.appendChild(cell("date",p.vencimento,"vencimento"));
     tr.appendChild(cell("number",p.leads,"leads",{step:"1",min:"0"}));
     tr.appendChild(cell("number",p.vendas,"vendas",{step:"1",min:"0"}));
+
     const tdC=document.createElement("td");
     let cpv=0; if(p.vendas>0 && p.custo>0) cpv=p.custo/p.vendas;
     tdC.textContent=cpv?formatarMoeda(cpv):"-"; tr.appendChild(tdC);
+
+    // Status + botão pagar
+    const tdStatus = document.createElement("td");
+    const btn = document.createElement("button");
+    btn.className = "status-pill";
+
+    let dias = null;
+    if (p.vencimento) {
+      dias = (new Date(p.vencimento) - hoje) / (1000*60*60*24);
+    }
+
+    let status = "OK";
+    let statusClass = "status-ok";
+
+    if (p.pago) {
+      status = "Pago";
+      statusClass = "status-pago";
+    } else if (p.vencimento) {
+      if (dias < 0) { status = "Vencido"; statusClass = "status-vencido"; }
+      else if (dias <= 3) { status = "Urgente"; statusClass = "status-urgente"; }
+      else if (dias <= 10) { status = "Atenção"; statusClass = "status-atencao"; }
+      else { status = "OK"; statusClass = "status-ok"; }
+    }
+
+    btn.textContent = status;
+    btn.classList.add(statusClass);
+    btn.addEventListener("click",()=>{
+      estadoPortais[idx].pago = !estadoPortais[idx].pago;
+      salvarLS(STORAGE_KEYS.portais, estadoPortais);
+      renderPortaisTabela();
+      atualizarDashboard();
+    });
+
+    tdStatus.appendChild(btn);
+    tr.appendChild(tdStatus);
+
     tbody.appendChild(tr); totalCusto+=p.custo||0;
   });
   if(totalEl)totalEl.textContent=formatarMoeda(totalCusto);
 }
+
 function setupPortais(){
   inicializarPortaisSeVazio(); renderPortaisTabela();
   const btn=document.getElementById("btn-add-portal");
@@ -287,6 +331,7 @@ function atualizarDashboard(){
     });
   }
 
+
   const dashPort=document.getElementById("dash-portais");
   const dashTotal=document.getElementById("dash-portais-total");
   if(dashPort){
@@ -294,9 +339,14 @@ function atualizarDashboard(){
     const agora=new Date();
     const cps=estadoPortais.slice().filter(p=>p.vencimento).sort((a,b)=>new Date(a.vencimento)-new Date(b.vencimento));
     cps.slice(0,3).forEach(p=>{
+      if (typeof p.pago === "undefined") p.pago = false;
       const li=document.createElement("li");
       const dias=(new Date(p.vencimento)-agora)/(1000*60*60*24);
-      let status="OK"; if(dias<0)status="Vencido"; else if(dias<=3)status="Urgente"; else if(dias<=10)status="Atenção";
+      let status="OK";
+      if (p.pago) status="Pago";
+      else if(dias<0)status="Vencido";
+      else if(dias<=3)status="Urgente";
+      else if(dias<=10)status="Atenção";
       li.innerHTML=`<span>${p.nome}</span><strong>${status} · ${p.vencimento||"-"}</strong>`;
       dashPort.appendChild(li);
     });
